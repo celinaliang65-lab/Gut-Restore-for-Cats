@@ -122,6 +122,117 @@ def extract_variant_prices(product_json, wanted_variants):
     return results
 
 
+def build_daily_status_message(checked_items):
+    """
+    無價格變動時發送的「每日巡查回報」卡片
+    checked_items: [{"product": name, "variant": ..., "price": ..., "url": ...}, ...]
+    """
+    body_rows = []
+    for item in checked_items:
+        body_rows.append({
+            "type": "box",
+            "layout": "horizontal",
+            "margin": "md",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": f"🐱 {item['variant']}",
+                    "size": "sm",
+                    "color": "#3A3A3A",
+                    "flex": 3,
+                    "wrap": True,
+                },
+                {
+                    "type": "text",
+                    "text": f"${item['price']:.2f}",
+                    "size": "sm",
+                    "weight": "bold",
+                    "color": COLOR_HEADER_BG,
+                    "align": "end",
+                    "flex": 2,
+                },
+            ],
+        })
+
+    bubble = {
+        "type": "bubble",
+        "size": "kilo",
+        "header": {
+            "type": "box",
+            "layout": "vertical",
+            "backgroundColor": COLOR_HEADER_BG,
+            "paddingAll": "12px",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": "🐱💊 每日價格巡查",
+                    "color": COLOR_HEADER_TEXT,
+                    "weight": "bold",
+                    "size": "sm",
+                }
+            ],
+        },
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "backgroundColor": COLOR_BODY_BG,
+            "spacing": "sm",
+            "paddingAll": "16px",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": checked_items[0]["product"],
+                    "weight": "bold",
+                    "size": "md",
+                    "wrap": True,
+                },
+                {
+                    "type": "text",
+                    "text": f"📅 {taiwan_now().strftime('%Y/%m/%d %H:%M')} 巡查完成",
+                    "size": "xs",
+                    "color": "#999999",
+                    "margin": "sm",
+                },
+                {
+                    "type": "separator",
+                    "margin": "md",
+                },
+                *body_rows,
+                {
+                    "type": "text",
+                    "text": "✅ 今日無降價 / 促銷,價格維持不變",
+                    "size": "xs",
+                    "color": "#666666",
+                    "margin": "lg",
+                    "wrap": True,
+                },
+            ],
+        },
+        "footer": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "button",
+                    "style": "primary",
+                    "color": COLOR_HEADER_BG,
+                    "action": {
+                        "type": "uri",
+                        "label": "🔗 前往商品頁面",
+                        "uri": checked_items[0]["url"],
+                    },
+                }
+            ],
+        },
+    }
+
+    return {
+        "type": "flex",
+        "altText": f"每日價格巡查：{checked_items[0]['product']} 目前無變動",
+        "contents": bubble,
+    }
+
+
 def build_line_flex_message(alerts):
     """
     alerts: [{"product": name, "variant": ..., "price": ..., "old_price": ..., "compare_at_price": ...}, ...]
@@ -256,6 +367,7 @@ def send_line_push(message):
 def main():
     state = load_state()
     alerts = []
+    checked_items = []  # 這次巡查的所有商品現況（不論有無變動都記錄，用於每日回報卡片）
 
     for product in PRODUCTS:
         product_json = fetch_product_json(product["url"])
@@ -273,6 +385,13 @@ def main():
 
             # 只有「第一次偵測到促銷/降價」才通知，避免重複洗版
             already_notified = prev and prev.get("last_alert_price") == v["price"]
+
+            checked_items.append({
+                "product": product["name"],
+                "variant": v["variant"],
+                "price": v["price"],
+                "url": product["url"],
+            })
 
             if (is_on_sale or is_price_drop) and not already_notified:
                 alerts.append({
@@ -301,8 +420,12 @@ def main():
         print(f"[通知] 偵測到 {len(alerts)} 項價格變動，發送 LINE 推播")
         message = build_line_flex_message(alerts)
         send_line_push(message)
+    elif checked_items:
+        print("[完成] 無價格變動，發送每日巡查回報卡片")
+        message = build_daily_status_message(checked_items)
+        send_line_push(message)
     else:
-        print("[完成] 無價格變動，未發送通知")
+        print("[警告] 沒有任何商品資料可回報（可能抓取全部失敗）")
 
 
 if __name__ == "__main__":
