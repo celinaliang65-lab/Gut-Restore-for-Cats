@@ -1,0 +1,40 @@
+name: AnimalBiome Price Check
+
+on:
+  schedule:
+    # UTC 01:00 = 台灣時間 09:00，每天執行一次
+    - cron: "0 1 * * *"
+  workflow_dispatch: {}   # 允許手動在 GitHub 網頁上點擊執行，方便測試
+
+permissions:
+  contents: write   # 需要寫入權限才能把最新價格記錄 commit 回 repo
+
+jobs:
+  check-price:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run price monitor
+        env:
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          LINE_USER_ID_1: ${{ secrets.LINE_USER_ID_1 }}
+          LINE_USER_ID_2: ${{ secrets.LINE_USER_ID_2 }}
+        run: python price_monitor.py
+
+      - name: Commit updated price state
+        run: |
+          git config user.name "price-monitor-bot"
+          git config user.email "actions@github.com"
+          git add data/price_state.json
+          git diff --cached --quiet || git commit -m "更新價格記錄 $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push
