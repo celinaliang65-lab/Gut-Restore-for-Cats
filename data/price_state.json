@@ -1,12 +1,12 @@
 {
   "Gut Restore for Cats::30 Capsules": {
-    "price": 105.0,
+    "price": 115.0,
     "last_alert_price": null,
-    "checked_at": "2026-09-18T13:37:49.221397+08:00"
+    "checked_at": "2026-09-19T13:33:16.788590+08:00"
   },
   "Gut Restore for Cats::60 Capsules": {
-    "price": 180.0,
+    "price": 200.0,
     "last_alert_price": null,
-    "checked_at": "2026-09-18T13:37:49.221419+08:00"
+    "checked_at": "2026-09-19T13:33:16.788614+08:00"
   }
 }
